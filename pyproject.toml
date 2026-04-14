@@ -4,4 +4,12 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pydantic>=2.12.5",
+]
+
+[tool.uv]
+managed = true
+
+[tool.uv.workspace]
+# Empty — this makes A3 its own workspace root, stopping upward discovery
