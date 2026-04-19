@@ -5,7 +5,18 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.4",
+    "opencv-python>=4.13.0.92",
+    "pycocotools>=2.0.11",
     "pydantic>=2.12.5",
+    "python-docx>=1.2.0",
+    "pyyaml>=6.0.3",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "tqdm>=4.67.3",
+    "transformers>=5.5.4",
+    "ultralytics>=8.4.39",
 ]
 
 [tool.uv]

@@ -1,2 +1,3 @@
+from .Data import BoundingBox, Detection, MischiefResult, PairRisk
 
-from Data import Data
+__all__ = ["BoundingBox", "Detection", "MischiefResult", "PairRisk"]

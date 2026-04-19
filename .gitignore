@@ -8,3 +8,7 @@ __pycache__/
 *.pyd
 *.db
 
+*.docx
+*.pdf
+Plan.md
+.claude/
