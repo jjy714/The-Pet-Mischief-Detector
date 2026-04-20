@@ -25,6 +25,16 @@ CLASS_NAMES = [
     "remote",
     "keyboard",
 ]
+TARGET_CLASSES = {
+    "cat",
+    "dog",
+    "cup",
+    "laptop",
+    "potted plant",
+    "vase",
+    "remote",
+    "keyboard",
+}
 
 DEPTH_MODEL_ID = "depth-anything/Depth-Anything-V2-Small-hf"
 
@@ -51,22 +61,39 @@ def infer_yolo(yolo: YOLO, frame: np.ndarray, conf: float = 0.25) -> list[Detect
     """
     Run YOLO on a BGR frame.
 
+    Uses the model's own class-name mapping (yolo.names), so this works for:
+    - pretrained COCO weights (e.g. yolo11n.pt)
+    - custom fine-tuned weights (e.g. best.pt)
+
     Returns:
-        List of Detection objects. median_depth is set to 0.0 — call
-        fill_depths() afterwards to populate it from the depth map.
+        List of Detection objects filtered to TARGET_CLASSES.
+        median_depth is set to 0.0 — call fill_depths() afterwards.
     """
     h, w = frame.shape[:2]
     results = yolo(frame, verbose=False, conf=conf)[0]
     detections: list[Detection] = []
+
+    model_names = yolo.names
+    if isinstance(model_names, list):
+        model_names = {i: name for i, name in enumerate(model_names)}
+
     for box in results.boxes:
         cls_id = int(box.cls.item())
-        if cls_id >= len(CLASS_NAMES):
+
+        if cls_id not in model_names:
             continue
+
+        class_name = str(model_names[cls_id])
+
+        if class_name not in TARGET_CLASSES:
+            continue
+
         x1, y1, x2, y2 = box.xyxy[0].tolist()
+
         detections.append(
             Detection(
                 class_id=cls_id,
-                class_name=CLASS_NAMES[cls_id],
+                class_name=class_name,
                 confidence=float(box.conf.item()),
                 bbox=BoundingBox(
                     x_min=min(max(x1 / w, 0.0), 1.0),
@@ -77,6 +104,7 @@ def infer_yolo(yolo: YOLO, frame: np.ndarray, conf: float = 0.25) -> list[Detect
                 median_depth=0.0,
             )
         )
+
     return detections
 
 

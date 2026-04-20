@@ -61,6 +61,14 @@ def run_eval(args: argparse.Namespace, yolo, processor, depth_model, device: str
     out_dir   = Path(args.output)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    risk_dirs = {
+        "HIGH": out_dir / "HIGH",
+        "MEDIUM": out_dir / "MEDIUM",
+        "LOW": out_dir / "LOW",
+    }
+    for risk_dir in risk_dirs.values():
+        risk_dir.mkdir(parents=True, exist_ok=True)
+
     image_paths = (
         sorted(input_dir.glob("*.jpg"))
         + sorted(input_dir.glob("*.jpeg"))
@@ -87,7 +95,12 @@ def run_eval(args: argparse.Namespace, yolo, processor, depth_model, device: str
 
         counts[result.risk_level] += 1
         annotated = draw_frame(frame, result, depth_map=depth_map)
-        cv2.imwrite(str(out_dir / img_path.name), annotated)
+
+        save_dir = risk_dirs.get(result.risk_level, out_dir / "UNKNOWN")
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = save_dir / img_path.name
+
+        cv2.imwrite(str(save_path), annotated)
         print(f"  [{result.risk_level:>6}]  {img_path.name}  —  {result.warning_message}")
 
     total = sum(counts.values())
@@ -317,15 +330,16 @@ def main() -> None:
     device = get_device()
     print(f"Device  : {device}")
 
-    weights = Path(args.weights)
-    if not weights.exists():
-        raise FileNotFoundError(
-            f"YOLO weights not found: {weights}\n"
-            "Run scripts/03_train.py first."
-        )
+    weights_arg = args.weights
+    weights_path = Path(weights_arg)
+
+    if weights_path.exists():
+        weights_to_load = str(weights_path)
+    else:
+        weights_to_load = weights_arg
 
     print("Loading YOLO ...")
-    yolo = load_yolo(str(weights))
+    yolo = load_yolo(weights_to_load)
 
     print("Loading Depth Anything V2 ...")
     processor, depth_model = load_depth_model(device)

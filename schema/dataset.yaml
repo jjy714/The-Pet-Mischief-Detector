@@ -1,0 +1,14 @@
+names:
+- cat
+- dog
+- cup
+- laptop
+- potted plant
+- vase
+- remote
+- keyboard
+nc: 8
+path: /Users/heosunghak/Projects/DATAPROJECTS/The-Pet-Mischief-Detector/data/dataset
+test: test/images
+train: train/images
+val: val/images
