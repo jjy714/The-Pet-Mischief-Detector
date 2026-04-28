@@ -13,6 +13,22 @@ import numpy as np
 
 from schema.Data import BoundingBox, Detection, MischiefResult, PairRisk
 
+# Real-world reference sizes (metres, rough median values).
+REAL_SIZE_M: dict[str, float] = {
+    "cat":          0.35,
+    "dog":          0.50,
+    "cup":          0.10,
+    "vase":         0.25,
+    "laptop":       0.35,
+    "keyboard":     0.45,
+    "potted plant": 0.30,
+    "remote":       0.20,
+}
+
+# Blend weight for size-based depth proxy vs. raw Depth Anything signal.
+# Kept low because the proxy has wide error bars (unusual angles, size variation).
+_ALPHA = 0.25
+
 PET_CLASSES = {"cat", "dog"}
 
 # Risk multiplier table — scales the closeness score by pair context
@@ -49,10 +65,9 @@ HIGH_RISK_MESSAGES: dict[tuple[str, str], str] = {
 MEDIUM_RISK_MESSAGE = "Caution! Keep an eye on your pet."
 LOW_RISK_MESSAGE    = "All clear. Pet is behaving peacefully."
 
-# Closeness score weights (must sum to 1.0)
-W1 = 0.5  # 2D proximity
-W2 = 0.3  # depth similarity
-W3 = 0.2  # contact likelihood
+# 2D component weights (depth is now a multiplicative gate, not an additive term)
+W1 = 0.7  # 2D proximity
+W3 = 0.3  # contact likelihood
 
 # Edge-gap decay threshold in pixels
 GAP_DECAY_PX = 50.0
@@ -84,16 +99,42 @@ def _proximity_2d(a: Detection, b: Detection) -> float:
     return 1.0 - min(dist, 1.0)
 
 
-def _depth_similarity(a: Detection, b: Detection) -> float:
+def _size_depth_proxy(det: Detection, img_w: int, img_h: int) -> float | None:
     """
-    How close the two detections are in the depth dimension.
+    Metric depth proxy from bounding-box pixel area and known real-world size.
 
-    Both median_depth values are in [0, 1] (closeness space), so the
-    absolute difference is already in [0, 1].
-
-    Returns 1.0 when at the same depth plane, 0.0 at maximum separation.
+    Returns a farness score in [0, 1] (1 = very far), or None when the
+    class has no size entry.
     """
-    return 1.0 - abs(a.median_depth - b.median_depth)
+    real_m = REAL_SIZE_M.get(det.class_name)
+    if real_m is None:
+        return None
+    px_w = (det.bbox.x_max - det.bbox.x_min) * img_w
+    px_h = (det.bbox.y_max - det.bbox.y_min) * img_h
+    px_size = math.sqrt(max(1.0, px_w * px_h))
+    return min((real_m / px_size) / 0.05, 1.0)
+
+
+def _depth_similarity(
+    a: Detection, b: Detection, img_w: int, img_h: int
+) -> float:
+    """
+    Blended depth similarity: Depth Anything ordinal signal + size-corrected proxy.
+
+    Returns 1.0 when objects share the same depth plane, 0.0 at maximum
+    separation. Acts as a multiplicative gate in calculate_mischief so that
+    objects at different depths suppress the 2D-driven score.
+    """
+    da_sim = 1.0 - abs(a.median_depth - b.median_depth)
+
+    proxy_a = _size_depth_proxy(a, img_w, img_h)
+    proxy_b = _size_depth_proxy(b, img_w, img_h)
+
+    if proxy_a is None or proxy_b is None:
+        return da_sim
+
+    size_sim = 1.0 - abs(proxy_a - proxy_b)
+    return _ALPHA * size_sim + (1.0 - _ALPHA) * da_sim
 
 
 def _contact_likelihood(
@@ -152,10 +193,12 @@ def calculate_mischief(
     pairs: list[PairRisk] = []
     for pet in pets:
         for obj in objs:
-            prox   = _proximity_2d(pet, obj)
-            depth  = _depth_similarity(pet, obj)
+            prox    = _proximity_2d(pet, obj)
+            depth   = _depth_similarity(pet, obj, img_w, img_h)
             contact = _contact_likelihood(pet, obj, img_w, img_h)
-            closeness  = W1 * prox + W2 * depth + W3 * contact
+            # Depth is a multiplicative gate: different depths collapse the score
+            # regardless of 2D overlap, preventing false positives from screen geometry.
+            closeness = (W1 * prox + W3 * contact) * depth
             multiplier = PAIR_MULTIPLIERS.get(
                 (pet.class_name, obj.class_name), DEFAULT_MULTIPLIER
             )
@@ -176,7 +219,7 @@ def calculate_mischief(
     pairs.sort(key=lambda p: p.risk_score, reverse=True)
     max_risk = pairs[0].risk_score if pairs else 0.0
 
-    if max_risk > 0.6:
+    if max_risk > 0.65:
         risk_level = "HIGH"
         key = (pairs[0].pet.class_name, pairs[0].obj.class_name)
         warning = HIGH_RISK_MESSAGES.get(
