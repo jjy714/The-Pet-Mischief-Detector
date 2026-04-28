@@ -1,0 +1,142 @@
+filename,ground_truth,prediction,correct,max_risk_score,warning_message
+000000003789.jpg,HIGH,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000005862.jpg,MEDIUM,HIGH,0,1.1543,Mischief Alert! Dog is going for the laptop!
+000000016297.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000016823.jpg,MEDIUM,HIGH,0,0.6122,Mischief Alert! Your cat is plotting against your drink!
+000000018903.jpg,MEDIUM,HIGH,0,1.0362,Mischief Alert! Cat occupying your laptop!
+000000021313.jpg,MEDIUM,HIGH,0,1.0697,Mischief Alert! Cat about to type a novel!
+000000031090.jpg,MEDIUM,HIGH,0,1.0202,Mischief Alert! Cat occupying your laptop!
+000000031745.jpg,LOW,HIGH,0,1.0579,Mischief Alert! Your cat is plotting against your drink!
+000000037707.jpg,LOW,HIGH,0,1.1428,Mischief Alert! Cat occupying your laptop!
+000000041505.jpg,HIGH,HIGH,1,1.1464,Mischief Alert! Cat occupying your laptop!
+000000043345.jpg,MEDIUM,HIGH,0,1.262,Mischief Alert! Dog is going for the laptop!
+000000044702.jpg,MEDIUM,HIGH,0,1.22,Mischief Alert! Your cat is eyeing that vase!
+000000045721.jpg,MEDIUM,HIGH,0,1.1045,Mischief Alert! Cat about to type a novel!
+000000053479.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000053864.jpg,HIGH,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000057812.jpg,LOW,HIGH,0,1.2094,Mischief Alert! Cat occupying your laptop!
+000000060792.jpg,HIGH,HIGH,1,1.0839,Mischief Alert! Cat about to type a novel!
+000000062547.jpg,MEDIUM,HIGH,0,0.9544,Mischief Alert! Cat occupying your laptop!
+000000067445.jpg,MEDIUM,HIGH,0,0.7408,Mischief Alert! Dog is digging in the plant!
+000000069758.jpg,MEDIUM,HIGH,0,1.0249,Mischief Alert! Your cat wants to dig in that plant!
+000000070562.jpg,MEDIUM,HIGH,0,0.9358,Mischief Alert! Cat about to type a novel!
+000000076588.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000077595.jpg,MEDIUM,HIGH,0,0.9931,Mischief Alert! Cat occupying your laptop!
+000000078342.jpg,MEDIUM,HIGH,0,1.0893,Mischief Alert! Cat about to type a novel!
+000000084783.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000094566.jpg,MEDIUM,HIGH,0,0.9347,Mischief Alert! Cat occupying your laptop!
+000000095753.jpg,MEDIUM,HIGH,0,1.2121,Mischief Alert! Your cat is plotting against your drink!
+000000098560.jpg,MEDIUM,HIGH,0,0.6144,Mischief Alert! Dog is after your drink!
+000000104403.jpg,MEDIUM,HIGH,0,1.1584,Mischief Alert! Dog is going for the laptop!
+000000109296.jpg,MEDIUM,HIGH,0,1.2558,Mischief Alert! Cat occupying your laptop!
+000000110240.jpg,HIGH,HIGH,1,1.0222,Mischief Alert! Cat is going for the remote!
+000000110435.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000116380.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000127799.jpg,MEDIUM,HIGH,0,1.2346,Mischief Alert! Cat occupying your laptop!
+000000130183.jpg,HIGH,HIGH,1,1.1198,Mischief Alert! Cat occupying your laptop!
+000000138070.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000138699.jpg,MEDIUM,HIGH,0,1.0973,Mischief Alert! Your cat is eyeing that vase!
+000000143123.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000146638.jpg,MEDIUM,HIGH,0,0.6352,Mischief Alert! Cat about to type a novel!
+000000147319.jpg,HIGH,HIGH,1,0.6328,Mischief Alert! Your cat is eyeing that vase!
+000000153154.jpg,MEDIUM,HIGH,0,0.9544,Mischief Alert! Your cat wants to dig in that plant!
+000000153824.jpg,MEDIUM,HIGH,0,0.8979,Mischief Alert! Your cat is plotting against your drink!
+000000156151.jpg,LOW,HIGH,0,0.7252,Mischief Alert! Your cat wants to dig in that plant!
+000000165062.jpg,MEDIUM,HIGH,0,0.8206,Mischief Alert! Cat about to type a novel!
+000000169197.jpg,HIGH,HIGH,1,1.255,Mischief Alert! Your cat is plotting against your drink!
+000000179954.jpg,LOW,HIGH,0,0.9087,Mischief Alert! Cat is going for the remote!
+000000181449.jpg,MEDIUM,HIGH,0,0.9689,Mischief Alert! Cat is going for the remote!
+000000181739.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000182696.jpg,HIGH,HIGH,1,1.1799,Mischief Alert! Cat occupying your laptop!
+000000186442.jpg,MEDIUM,HIGH,0,1.0359,Mischief Alert! Cat about to type a novel!
+000000190360.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000199923.jpg,MEDIUM,HIGH,0,0.8275,Mischief Alert! Dog is going for the laptop!
+000000214726.jpg,MEDIUM,HIGH,0,0.7606,Mischief Alert! Dog is digging in the plant!
+000000215221.jpg,HIGH,HIGH,1,1.0696,Mischief Alert! Cat about to type a novel!
+000000221865.jpg,HIGH,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000228318.jpg,LOW,HIGH,0,1.2371,Mischief Alert! Cat occupying your laptop!
+000000230501.jpg,LOW,HIGH,0,1.2812,Mischief Alert! Cat occupying your laptop!
+000000232383.jpg,MEDIUM,HIGH,0,0.8302,Mischief Alert! Cat occupying your laptop!
+000000238453.jpg,LOW,HIGH,0,1.1194,Mischief Alert! Your cat wants to dig in that plant!
+000000242007.jpg,HIGH,MEDIUM,0,0.5462,Caution! Keep an eye on your pet.
+000000246736.jpg,MEDIUM,HIGH,0,1.0562,Mischief Alert! Cat about to type a novel!
+000000250543.jpg,HIGH,HIGH,1,1.0862,Mischief Alert! Cat occupying your laptop!
+000000256841.jpg,MEDIUM,HIGH,0,0.6153,Mischief Alert! Dog is digging in the plant!
+000000258765.jpg,MEDIUM,HIGH,0,0.8971,Mischief Alert! Cat is going for the remote!
+000000258773.jpg,LOW,MEDIUM,0,0.4655,Caution! Keep an eye on your pet.
+000000259572.jpg,HIGH,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000273642.jpg,LOW,HIGH,0,0.8587,Mischief Alert! Dog found the remote!
+000000275919.jpg,HIGH,HIGH,1,1.1718,Mischief Alert! Cat occupying your laptop!
+000000278463.jpg,MEDIUM,HIGH,0,1.2008,Mischief Alert! Cat occupying your laptop!
+000000287341.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000288847.jpg,LOW,HIGH,0,0.7485,Mischief Alert! Your cat is plotting against your drink!
+000000289211.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000292463.jpg,MEDIUM,HIGH,0,0.6796,Mischief Alert! Dog is after your drink!
+000000311789.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000311965.jpg,MEDIUM,HIGH,0,0.8434,Mischief Alert! Cat is going for the remote!
+000000317480.jpg,MEDIUM,HIGH,0,1.002,Mischief Alert! Your cat wants to dig in that plant!
+000000333819.jpg,MEDIUM,HIGH,0,0.9122,Mischief Alert! Your cat wants to dig in that plant!
+000000338134.jpg,MEDIUM,HIGH,0,1.1433,Mischief Alert! Your cat wants to dig in that plant!
+000000344033.jpg,MEDIUM,HIGH,0,0.8952,Mischief Alert! Cat about to type a novel!
+000000347328.jpg,MEDIUM,HIGH,0,1.0067,Mischief Alert! Your cat is plotting against your drink!
+000000362399.jpg,MEDIUM,MEDIUM,1,0.5411,Caution! Keep an eye on your pet.
+000000364879.jpg,MEDIUM,HIGH,0,1.0438,Mischief Alert! Cat occupying your laptop!
+000000368081.jpg,HIGH,HIGH,1,0.9268,Mischief Alert! Cat is going for the remote!
+000000370030.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000372976.jpg,LOW,HIGH,0,0.6018,Mischief Alert! Dog is after your drink!
+000000375509.jpg,MEDIUM,HIGH,0,0.907,Mischief Alert! Cat about to type a novel!
+000000379360.jpg,MEDIUM,MEDIUM,1,0.557,Caution! Keep an eye on your pet.
+000000383406.jpg,HIGH,HIGH,1,1.3159,Mischief Alert! Your cat is plotting against your drink!
+000000396578.jpg,HIGH,HIGH,1,0.9791,Mischief Alert! Cat is going for the remote!
+000000401681.jpg,MEDIUM,MEDIUM,1,0.5607,Caution! Keep an eye on your pet.
+000000402778.jpg,MEDIUM,MEDIUM,1,0.5606,Caution! Keep an eye on your pet.
+000000404602.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000404812.jpg,MEDIUM,MEDIUM,1,0.5916,Caution! Keep an eye on your pet.
+000000407139.jpg,MEDIUM,HIGH,0,1.1675,Mischief Alert! Cat occupying your laptop!
+000000407386.jpg,MEDIUM,HIGH,0,1.0503,Mischief Alert! Cat occupying your laptop!
+000000411065.jpg,MEDIUM,HIGH,0,1.2345,Mischief Alert! Dog is going for the laptop!
+000000412490.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000421393.jpg,MEDIUM,HIGH,0,0.7829,Mischief Alert! Dog found the remote!
+000000427034.jpg,MEDIUM,HIGH,0,1.288,Mischief Alert! Dog is going for the laptop!
+000000427639.jpg,LOW,HIGH,0,0.6949,Mischief Alert! Dog is digging in the plant!
+000000432212.jpg,MEDIUM,HIGH,0,0.6031,Mischief Alert! Cat occupying your laptop!
+000000432604.jpg,MEDIUM,HIGH,0,0.7348,Mischief Alert! Dog tail incoming — protect that vase!
+000000434580.jpg,MEDIUM,HIGH,0,1.2162,Mischief Alert! Cat occupying your laptop!
+000000435573.jpg,MEDIUM,HIGH,0,0.7745,Mischief Alert! Dog is going for the laptop!
+000000437102.jpg,MEDIUM,HIGH,0,0.761,Mischief Alert! Your cat is eyeing that vase!
+000000440371.jpg,HIGH,HIGH,1,0.8323,Mischief Alert! Cat is going for the remote!
+000000441862.jpg,HIGH,MEDIUM,0,0.4868,Caution! Keep an eye on your pet.
+000000453400.jpg,LOW,HIGH,0,0.8388,Mischief Alert! Cat occupying your laptop!
+000000459600.jpg,HIGH,HIGH,1,1.2936,Mischief Alert! Dog is going for the laptop!
+000000467333.jpg,MEDIUM,HIGH,0,0.8348,Mischief Alert! Cat is going for the remote!
+000000468773.jpg,LOW,HIGH,0,0.8477,Mischief Alert! Your cat wants to dig in that plant!
+000000469317.jpg,HIGH,HIGH,1,1.27,Mischief Alert! Your cat is plotting against your drink!
+000000472399.jpg,MEDIUM,HIGH,0,1.1233,Mischief Alert! Your cat is eyeing that vase!
+000000480076.jpg,MEDIUM,HIGH,0,0.6067,Mischief Alert! Cat is going for the remote!
+000000483867.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000484549.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000485560.jpg,LOW,HIGH,0,0.9535,Mischief Alert! Dog is after your drink!
+000000502112.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000502204.jpg,MEDIUM,HIGH,0,1.1466,Mischief Alert! Your cat is plotting against your drink!
+000000511255.jpg,MEDIUM,HIGH,0,0.7873,Mischief Alert! Dog is digging in the plant!
+000000515136.jpg,LOW,HIGH,0,1.0346,Mischief Alert! Your cat is plotting against your drink!
+000000515777.jpg,MEDIUM,HIGH,0,0.9114,Mischief Alert! Dog found the remote!
+000000521947.jpg,HIGH,HIGH,1,1.0447,Mischief Alert! Cat about to type a novel!
+000000522405.jpg,MEDIUM,HIGH,0,1.0786,Mischief Alert! Cat occupying your laptop!
+000000525616.jpg,HIGH,MEDIUM,0,0.5387,Caution! Keep an eye on your pet.
+000000531594.jpg,MEDIUM,HIGH,0,1.0568,Mischief Alert! Your cat is plotting against your drink!
+000000535033.jpg,LOW,LOW,1,0.0,All clear. Pet is behaving peacefully.
+000000537337.jpg,MEDIUM,HIGH,0,0.6351,Mischief Alert! Cat about to type a novel!
+000000542431.jpg,MEDIUM,MEDIUM,1,0.5944,Caution! Keep an eye on your pet.
+000000562574.jpg,MEDIUM,HIGH,0,0.8956,Mischief Alert! Dog is digging in the plant!
+000000562875.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000563805.jpg,MEDIUM,HIGH,0,1.0044,Mischief Alert! Your cat wants to dig in that plant!
+000000564273.jpg,MEDIUM,HIGH,0,1.1482,Mischief Alert! Your cat is plotting against your drink!
+000000566319.jpg,MEDIUM,HIGH,0,0.8065,Mischief Alert! Dog is digging in the plant!
+000000569272.jpg,HIGH,HIGH,1,1.2046,Mischief Alert! Cat about to type a novel!
+000000572993.jpg,HIGH,HIGH,1,1.2259,Mischief Alert! Cat occupying your laptop!
+000000574388.jpg,MEDIUM,HIGH,0,1.175,Mischief Alert! Cat occupying your laptop!
+000000575816.jpg,LOW,HIGH,0,1.3102,Mischief Alert! Your cat is plotting against your drink!
+000000576589.jpg,MEDIUM,LOW,0,0.0,All clear. Pet is behaving peacefully.
+000000578295.jpg,MEDIUM,HIGH,0,0.623,Mischief Alert! Dog chewing on keyboard!
+000000579998.jpg,MEDIUM,HIGH,0,1.0169,Mischief Alert! Your cat wants to dig in that plant!
