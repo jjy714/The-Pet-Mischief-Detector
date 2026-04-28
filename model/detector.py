@@ -122,8 +122,16 @@ def fill_depths(
     w: int,
 ) -> list[Detection]:
     """
-    Sample the median closeness value from depth_map for each detection's
-    bounding box region and return updated Detection objects.
+    Sample depth from a portrait strip (narrow vertical center column) of each
+    bounding box using the 25th-percentile (near-side bias).
+
+    Portrait strip: center ~20% of box width, dropping the top 12.5% of height
+    to reduce ceiling/wall contamination above the object.  Near-side percentile
+    biases the reading toward the object's front surface, maximising the depth
+    difference between close and far objects for the multiplicative gate.
+
+    Falls back to full-bbox median when the box is narrower than 20 px (small
+    objects at long range where a portrait strip would be too few pixels).
     """
     updated: list[Detection] = []
     for det in detections:
@@ -131,7 +139,24 @@ def fill_depths(
         y1 = max(0, int(det.bbox.y_min * h))
         x2 = min(w, int(det.bbox.x_max * w))
         y2 = min(h, int(det.bbox.y_max * h))
-        roi = depth_map[y1:y2, x1:x2]
-        med = float(np.median(roi)) if roi.size > 0 else 0.0
+        bw = x2 - x1
+        bh = y2 - y1
+
+        if bw >= 20:
+            strip_w = max(4, bw // 5)
+            cx = (x1 + x2) // 2
+            sx1 = max(x1, cx - strip_w // 2)
+            sx2 = min(x2, cx + strip_w // 2)
+            sy1 = y1 + bh // 8   # drop top 12.5% (ceiling / hat artifacts)
+            roi = depth_map[sy1:y2, sx1:sx2]
+            if roi.size > 0:
+                med = float(np.percentile(roi, 25))
+            else:
+                roi_fb = depth_map[y1:y2, x1:x2]
+                med = float(np.median(roi_fb)) if roi_fb.size > 0 else 0.0
+        else:
+            roi = depth_map[y1:y2, x1:x2]
+            med = float(np.median(roi)) if roi.size > 0 else 0.0
+
         updated.append(det.model_copy(update={"median_depth": med}))
     return updated

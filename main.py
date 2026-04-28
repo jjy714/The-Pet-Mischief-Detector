@@ -41,6 +41,7 @@ ROOT = Path(__file__).parent
 
 from model.detector import fill_depths, infer_depth, infer_yolo, load_depth_model, load_yolo
 from model.mischief import calculate_mischief
+from schema.Data import MischiefResult
 from model.visualize import draw_frame
 
 DEFAULT_WEIGHTS = ROOT / "model" / "runs" / "train" / "weights" / "best.pt"
@@ -83,7 +84,7 @@ def run_eval(args: argparse.Namespace, yolo, processor, depth_model, device: str
         detections = infer_yolo(yolo, frame)
         depth_map  = infer_depth(processor, depth_model, frame, device)
         detections = fill_depths(detections, depth_map, h, w)
-        result     = calculate_mischief(detections, depth_map, w, h, source=img_path.name)
+        result     = calculate_mischief(detections, w, h, source=img_path.name)
 
         counts[result.risk_level] += 1
         annotated = draw_frame(frame, result, depth_map=depth_map)
@@ -226,12 +227,23 @@ def run_video(args: argparse.Namespace, yolo, processor, depth_model, device: st
 
             # Depth map comes from the background thread (may be one frame stale)
             depth_map, depth_count = state.get_depth_and_count()
-            if depth_map is None:
-                # Depth thread hasn't produced its first result yet
-                depth_map = np.zeros((h, w), dtype=np.float32)
 
-            detections = fill_depths(detections, depth_map, h, w)
-            result     = calculate_mischief(detections, depth_map, w, h, source="video_frame")
+            if depth_map is None:
+                # Depth thread hasn't produced its first result yet — gate
+                # mischief scoring to avoid false HIGH alerts from zero-depth.
+                depth_map = np.zeros((h, w), dtype=np.float32)
+                detections = fill_depths(detections, depth_map, h, w)
+                result = MischiefResult(
+                    source="video_frame",
+                    detections=detections,
+                    pairs=[],
+                    max_risk_score=0.0,
+                    risk_level="LOW",
+                    warning_message="Initializing depth sensor...",
+                )
+            else:
+                detections = fill_depths(detections, depth_map, h, w)
+                result     = calculate_mischief(detections, w, h, source="video_frame")
 
             # Track depth update rate
             if depth_count != prev_depth_count:

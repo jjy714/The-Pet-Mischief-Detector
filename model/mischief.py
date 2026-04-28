@@ -9,24 +9,26 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
-
 from schema.Data import BoundingBox, Detection, MischiefResult, PairRisk
 
-# Real-world reference sizes (metres, rough median values).
-REAL_SIZE_M: dict[str, float] = {
-    "cat":          0.35,
-    "dog":          0.50,
-    "cup":          0.10,
-    "vase":         0.25,
-    "laptop":       0.35,
-    "keyboard":     0.45,
-    "potted plant": 0.30,
-    "remote":       0.20,
+# Real-world size ranges (min_m, max_m).  Midpoint is used as the proxy estimate;
+# the ratio min/max becomes a per-class confidence score that scales _ALPHA down
+# for high-variance classes (e.g. dog 0.19 vs. laptop 0.84), automatically
+# falling back to the raw Depth Anything signal when size is unreliable.
+REAL_SIZE_M: dict[str, tuple[float, float]] = {
+    "cat":          (0.25, 0.50),  # domestic cats are fairly consistent
+    "dog":          (0.15, 0.80),  # Chihuahua → Great Dane
+    "cup":          (0.08, 0.12),
+    "vase":         (0.15, 0.45),
+    "laptop":       (0.30, 0.38),  # 13"–16" screen widths
+    "keyboard":     (0.35, 0.50),  # compact → full-size
+    "potted plant": (0.15, 0.60),
+    "remote":       (0.15, 0.25),
 }
 
-# Blend weight for size-based depth proxy vs. raw Depth Anything signal.
-# Kept low because the proxy has wide error bars (unusual angles, size variation).
+# Maximum blend weight for size-based depth proxy vs. raw Depth Anything signal.
+# Actual per-pair weight is _ALPHA * min(conf_a, conf_b), so high-variance
+# classes (dog) automatically use a much lower effective alpha.
 _ALPHA = 0.25
 
 PET_CLASSES = {"cat", "dog"}
@@ -69,8 +71,10 @@ LOW_RISK_MESSAGE    = "All clear. Pet is behaving peacefully."
 W1 = 0.7  # 2D proximity
 W3 = 0.3  # contact likelihood
 
-# Edge-gap decay threshold in pixels
-GAP_DECAY_PX = 50.0
+# Edge-gap decay as a fraction of the image diagonal (~5%).
+# Replaces the old hardcoded 50 px constant so that the "near edge" threshold
+# scales consistently across different camera resolutions.
+_GAP_DECAY_FRAC = 0.05
 
 
 def _bbox_to_pixels(
@@ -99,20 +103,28 @@ def _proximity_2d(a: Detection, b: Detection) -> float:
     return 1.0 - min(dist, 1.0)
 
 
-def _size_depth_proxy(det: Detection, img_w: int, img_h: int) -> float | None:
+def _size_depth_proxy(
+    det: Detection, img_w: int, img_h: int
+) -> tuple[float, float] | None:
     """
     Metric depth proxy from bounding-box pixel area and known real-world size.
 
-    Returns a farness score in [0, 1] (1 = very far), or None when the
-    class has no size entry.
+    Returns (proxy, confidence) where:
+      proxy      — farness score in [0, 1] (1 = very far), based on midpoint size
+      confidence — min_m / max_m in (0, 1]; narrow range → high confidence
+    Returns None when the class has no size entry.
     """
-    real_m = REAL_SIZE_M.get(det.class_name)
-    if real_m is None:
+    size_range = REAL_SIZE_M.get(det.class_name)
+    if size_range is None:
         return None
+    min_m, max_m = size_range
+    mid_m = (min_m + max_m) / 2
+    confidence = min_m / max_m
     px_w = (det.bbox.x_max - det.bbox.x_min) * img_w
     px_h = (det.bbox.y_max - det.bbox.y_min) * img_h
     px_size = math.sqrt(max(1.0, px_w * px_h))
-    return min((real_m / px_size) / 0.05, 1.0)
+    proxy = min((mid_m / px_size) / 0.05, 1.0)
+    return proxy, confidence
 
 
 def _depth_similarity(
@@ -121,20 +133,27 @@ def _depth_similarity(
     """
     Blended depth similarity: Depth Anything ordinal signal + size-corrected proxy.
 
-    Returns 1.0 when objects share the same depth plane, 0.0 at maximum
-    separation. Acts as a multiplicative gate in calculate_mischief so that
-    objects at different depths suppress the 2D-driven score.
+    The proxy's blend weight is scaled by min(conf_a, conf_b) so that
+    high-variance classes (dog: conf≈0.19) automatically fall back toward
+    the raw DA signal, while well-known sizes (laptop: conf≈0.84) get fuller
+    proxy weight.
+
+    Acts as a multiplicative gate in calculate_mischief.
     """
     da_sim = 1.0 - abs(a.median_depth - b.median_depth)
 
-    proxy_a = _size_depth_proxy(a, img_w, img_h)
-    proxy_b = _size_depth_proxy(b, img_w, img_h)
+    result_a = _size_depth_proxy(a, img_w, img_h)
+    result_b = _size_depth_proxy(b, img_w, img_h)
 
-    if proxy_a is None or proxy_b is None:
+    if result_a is None or result_b is None:
         return da_sim
 
+    proxy_a, conf_a = result_a
+    proxy_b, conf_b = result_b
+    effective_alpha = _ALPHA * min(conf_a, conf_b)
+
     size_sim = 1.0 - abs(proxy_a - proxy_b)
-    return _ALPHA * size_sim + (1.0 - _ALPHA) * da_sim
+    return effective_alpha * size_sim + (1.0 - effective_alpha) * da_sim
 
 
 def _contact_likelihood(
@@ -157,18 +176,19 @@ def _contact_likelihood(
     area_b = max(1, (bx2 - bx1) * (by2 - by1))
     iou = inter / (area_a + area_b - inter)
 
-    # Pixel gap between nearest edges
+    # Pixel gap between nearest edges, normalised by image diagonal so the
+    # "near edge" threshold is consistent regardless of camera resolution.
+    gap_decay = _GAP_DECAY_FRAC * math.sqrt(img_w ** 2 + img_h ** 2)
     gap_x = float(max(0, max(bx1 - ax2, ax1 - bx2)))
     gap_y = float(max(0, max(by1 - ay2, ay1 - by2)))
     gap_px = math.sqrt(gap_x ** 2 + gap_y ** 2)
-    edge_bonus = max(0.0, 1.0 - gap_px / GAP_DECAY_PX)
+    edge_bonus = max(0.0, 1.0 - gap_px / gap_decay)
 
     return min(1.0, iou + edge_bonus)
 
 
 def calculate_mischief(
     detections: list[Detection],
-    depth_map: np.ndarray,
     img_w: int,
     img_h: int,
     source: str = "unknown",
@@ -178,8 +198,6 @@ def calculate_mischief(
 
     Args:
         detections: YOLO detections with filled median_depth values.
-        depth_map:  Closeness map (H, W) float32 — used structurally but
-                    individual pixel values are already in each Detection.
         img_w:      Frame width in pixels (for edge-gap calculation).
         img_h:      Frame height in pixels.
         source:     Identifier for logging (filename or "video_frame").
