@@ -39,8 +39,18 @@ import torch
 
 ROOT = Path(__file__).parent
 
-from model.detector import fill_depths, infer_depth, infer_yolo, load_depth_model, load_yolo
-from model.mischief import calculate_mischief
+from collections import deque
+
+from model.detector import (
+    _normalize_depth,
+    _run_depth_model,
+    fill_depths,
+    infer_depth,
+    infer_yolo,
+    load_depth_model,
+    load_yolo,
+)
+from model.mischief import _classify, calculate_mischief
 from schema.Data import MischiefResult
 from model.visualize import draw_frame
 
@@ -114,10 +124,12 @@ class _SharedState:
     """
 
     def __init__(self) -> None:
-        self._lock         = threading.Lock()
+        self._lock          = threading.Lock()
         self._frame: np.ndarray | None = None
         self._depth: np.ndarray | None = None
-        self._depth_count  = 0  # incremented each time depth is updated
+        self._depth_count   = 0  # incremented each time depth is updated
+        self._d_min_ema: float | None = None
+        self._d_max_ema: float | None = None
 
     # Frame (written by display thread, read by depth thread)
     def set_frame(self, frame: np.ndarray) -> None:
@@ -139,6 +151,26 @@ class _SharedState:
             d = self._depth.copy() if self._depth is not None else None
             return d, self._depth_count
 
+    def set_depth_ema(self, raw: np.ndarray, alpha: float = 0.1) -> None:
+        """
+        Update depth using EMA-stabilized normalization.
+
+        Maintains exponential moving averages of per-frame min/max so that
+        the closeness scale stays consistent across frames rather than
+        renormalizing independently each time.  Alpha = 0.1 gives ~1 second
+        time constant at 10 FPS depth updates.
+        """
+        d_min = float(raw.min())
+        d_max = float(raw.max())
+        with self._lock:
+            if self._d_min_ema is None:
+                self._d_min_ema, self._d_max_ema = d_min, d_max
+            else:
+                self._d_min_ema = alpha * d_min + (1.0 - alpha) * self._d_min_ema
+                self._d_max_ema = alpha * d_max + (1.0 - alpha) * self._d_max_ema
+            self._depth = _normalize_depth(raw, self._d_min_ema, self._d_max_ema)
+            self._depth_count += 1
+
 
 def _depth_worker(
     state: _SharedState,
@@ -158,8 +190,8 @@ def _depth_worker(
         if frame is None:
             time.sleep(0.01)
             continue
-        depth_map = infer_depth(processor, depth_model, frame, device)
-        state.set_depth(depth_map)
+        raw = _run_depth_model(processor, depth_model, frame, device)
+        state.set_depth_ema(raw)
 
 
 def run_video(args: argparse.Namespace, yolo, processor, depth_model, device: str) -> None:
@@ -208,6 +240,10 @@ def run_video(args: argparse.Namespace, yolo, processor, depth_model, device: st
     fps_display                    = 0.0
     fps_depth                      = 0.0
 
+    # Temporal hysteresis: require sustained risk before emitting HIGH/MEDIUM.
+    # Window of 15 frames at ~15–20 FPS ≈ 0.75–1 second.
+    risk_history: deque[float] = deque(maxlen=15)
+
     print("Live detection running. Press 'q' to quit.")
 
     try:
@@ -244,6 +280,16 @@ def run_video(args: argparse.Namespace, yolo, processor, depth_model, device: st
             else:
                 detections = fill_depths(detections, depth_map, h, w)
                 result     = calculate_mischief(detections, w, h, source="video_frame")
+                # Apply temporal hysteresis: classify by the minimum score in the
+                # rolling window so that transient spikes don't fire HIGH alerts.
+                risk_history.append(result.max_risk_score)
+                conservative_max = min(risk_history)
+                top_pair = result.pairs[0] if result.pairs else None
+                level, warning = _classify(conservative_max, top_pair)
+                result = result.model_copy(update={
+                    "risk_level": level,
+                    "warning_message": warning,
+                })
 
             # Track depth update rate
             if depth_count != prev_depth_count:

@@ -71,12 +71,6 @@ LOW_RISK_MESSAGE    = "All clear. Pet is behaving peacefully."
 W1 = 0.7  # 2D proximity
 W3 = 0.3  # contact likelihood
 
-# Edge-gap decay as a fraction of the image diagonal (~5%).
-# Replaces the old hardcoded 50 px constant so that the "near edge" threshold
-# scales consistently across different camera resolutions.
-_GAP_DECAY_FRAC = 0.05
-
-
 def _bbox_to_pixels(
     bbox: BoundingBox, w: int, h: int
 ) -> tuple[int, int, int, int]:
@@ -88,19 +82,25 @@ def _bbox_to_pixels(
     )
 
 
-def _proximity_2d(a: Detection, b: Detection) -> float:
+def _proximity_2d(a: Detection, b: Detection, img_w: int, img_h: int) -> float:
     """
-    Normalized 2D centroid distance score.
+    Edge-gap proximity score normalized by image diagonal.
 
-    Returns 1.0 when centres coincide, 0.0 when at opposite corners of
-    the image (diagonal distance = sqrt(2) in [0,1] normalized space).
+    Returns 1.0 when boxes touch or overlap, decays to 0.0 as the gap
+    approaches the full image diagonal.  Size-aware: a large object whose
+    edge is 2 px from another scores higher than a small object whose
+    centroid is equally close.
     """
-    cx_a = (a.bbox.x_min + a.bbox.x_max) / 2
-    cy_a = (a.bbox.y_min + a.bbox.y_max) / 2
-    cx_b = (b.bbox.x_min + b.bbox.x_max) / 2
-    cy_b = (b.bbox.y_min + b.bbox.y_max) / 2
-    dist = math.sqrt((cx_a - cx_b) ** 2 + (cy_a - cy_b) ** 2) / math.sqrt(2)
-    return 1.0 - min(dist, 1.0)
+    ax1 = a.bbox.x_min * img_w;  ay1 = a.bbox.y_min * img_h
+    ax2 = a.bbox.x_max * img_w;  ay2 = a.bbox.y_max * img_h
+    bx1 = b.bbox.x_min * img_w;  by1 = b.bbox.y_min * img_h
+    bx2 = b.bbox.x_max * img_w;  by2 = b.bbox.y_max * img_h
+
+    gap_x = max(0.0, max(bx1 - ax2, ax1 - bx2))
+    gap_y = max(0.0, max(by1 - ay2, ay1 - by2))
+    gap_px = math.sqrt(gap_x ** 2 + gap_y ** 2)
+    diagonal = math.sqrt(img_w ** 2 + img_h ** 2)
+    return 1.0 - min(gap_px / diagonal, 1.0)
 
 
 def _size_depth_proxy(
@@ -160,31 +160,46 @@ def _contact_likelihood(
     a: Detection, b: Detection, img_w: int, img_h: int
 ) -> float:
     """
-    Combined IoU + edge-proximity bonus.
+    IoU-based contact score.
 
-    Returns 1.0 when boxes overlap fully, decays as boxes move apart.
-    The edge bonus is 1.0 when edges touch and 0.0 at GAP_DECAY_PX pixels.
+    Returns 1.0 when boxes overlap fully, 0.0 when they do not overlap.
+    Near-but-not-touching proximity is already captured by _proximity_2d
+    (edge-gap), so this function only measures actual overlap.
     """
     ax1, ay1, ax2, ay2 = _bbox_to_pixels(a.bbox, img_w, img_h)
     bx1, by1, bx2, by2 = _bbox_to_pixels(b.bbox, img_w, img_h)
 
-    # IoU
     ix1, iy1 = max(ax1, bx1), max(ay1, by1)
     ix2, iy2 = min(ax2, bx2), min(ay2, by2)
     inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
     area_a = max(1, (ax2 - ax1) * (ay2 - ay1))
     area_b = max(1, (bx2 - bx1) * (by2 - by1))
-    iou = inter / (area_a + area_b - inter)
+    return inter / (area_a + area_b - inter)
 
-    # Pixel gap between nearest edges, normalised by image diagonal so the
-    # "near edge" threshold is consistent regardless of camera resolution.
-    gap_decay = _GAP_DECAY_FRAC * math.sqrt(img_w ** 2 + img_h ** 2)
-    gap_x = float(max(0, max(bx1 - ax2, ax1 - bx2)))
-    gap_y = float(max(0, max(by1 - ay2, ay1 - by2)))
-    gap_px = math.sqrt(gap_x ** 2 + gap_y ** 2)
-    edge_bonus = max(0.0, 1.0 - gap_px / gap_decay)
 
-    return min(1.0, iou + edge_bonus)
+def _classify(max_risk: float, top_pair: "PairRisk | None") -> tuple[str, str]:
+    """
+    Map a max risk score to (risk_level, warning_message).
+
+    Factored out so video mode can call it with a temporally smoothed score
+    without duplicating the threshold constants.
+
+    Effective per-pair HIGH closeness thresholds (0.65 / multiplier):
+      cat+cup / cat+vase (×1.5) → 0.43
+      dog+laptop (×1.4)         → 0.46
+      cat/dog+keyboard (×1.3)   → 0.50
+      cat/dog+cup/vase (×1.2)   → 0.54
+      cat/dog+remote (×1.0–1.1) → 0.59–0.65
+    Fragile objects intentionally fire at lower closeness.
+    """
+    if max_risk > 0.65:
+        key = (top_pair.pet.class_name, top_pair.obj.class_name) if top_pair else ("", "")
+        return "HIGH", HIGH_RISK_MESSAGES.get(
+            key, f"Mischief Alert! {key[0]} is near the {key[1]}!"
+        )
+    elif max_risk > 0.3:
+        return "MEDIUM", MEDIUM_RISK_MESSAGE
+    return "LOW", LOW_RISK_MESSAGE
 
 
 def calculate_mischief(
@@ -211,7 +226,7 @@ def calculate_mischief(
     pairs: list[PairRisk] = []
     for pet in pets:
         for obj in objs:
-            prox    = _proximity_2d(pet, obj)
+            prox    = _proximity_2d(pet, obj, img_w, img_h)
             depth   = _depth_similarity(pet, obj, img_w, img_h)
             contact = _contact_likelihood(pet, obj, img_w, img_h)
             # Depth is a multiplicative gate: different depths collapse the score
@@ -236,19 +251,8 @@ def calculate_mischief(
 
     pairs.sort(key=lambda p: p.risk_score, reverse=True)
     max_risk = pairs[0].risk_score if pairs else 0.0
-
-    if max_risk > 0.65:
-        risk_level = "HIGH"
-        key = (pairs[0].pet.class_name, pairs[0].obj.class_name)
-        warning = HIGH_RISK_MESSAGES.get(
-            key, f"Mischief Alert! {key[0]} is near the {key[1]}!"
-        )
-    elif max_risk > 0.3:
-        risk_level = "MEDIUM"
-        warning = MEDIUM_RISK_MESSAGE
-    else:
-        risk_level = "LOW"
-        warning = LOW_RISK_MESSAGE
+    top_pair = pairs[0] if pairs else None
+    risk_level, warning = _classify(max_risk, top_pair)
 
     return MischiefResult(
         source=source,

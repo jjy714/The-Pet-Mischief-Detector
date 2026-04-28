@@ -80,6 +80,49 @@ def infer_yolo(yolo: YOLO, frame: np.ndarray, conf: float = 0.25) -> list[Detect
     return detections
 
 
+def _run_depth_model(
+    processor,
+    depth_model,
+    frame: np.ndarray,
+    device: str,
+) -> np.ndarray:
+    """
+    Run Depth Anything V2 and return the raw (un-normalized) depth array.
+
+    Output is (H, W) float32, larger values = farther from camera.
+    Used by infer_depth (eval mode) and the video-mode depth worker
+    (which applies EMA normalization instead of per-frame normalization).
+    """
+    h, w = frame.shape[:2]
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    inputs = processor(images=image, return_tensors="pt").to(device)
+    with torch.no_grad():
+        outputs = depth_model(**inputs)
+    raw = torch.nn.functional.interpolate(
+        outputs.predicted_depth.unsqueeze(1),
+        size=(h, w),
+        mode="bicubic",
+        align_corners=False,
+    ).squeeze().cpu().numpy()
+    return raw.astype(np.float32)
+
+
+def _normalize_depth(raw: np.ndarray, d_min: float, d_max: float) -> np.ndarray:
+    """
+    Normalize a raw depth array to a closeness map in [0, 1] (1 = near, 0 = far).
+
+    Args:
+        raw:   (H, W) float32 depth array (larger = farther).
+        d_min: minimum depth value used as the normalization anchor.
+        d_max: maximum depth value used as the normalization anchor.
+    """
+    h, w = raw.shape
+    if d_max - d_min < 1e-6:
+        return np.zeros((h, w), dtype=np.float32)
+    closeness = 1.0 - (raw - d_min) / (d_max - d_min)
+    return np.clip(closeness, 0.0, 1.0).astype(np.float32)
+
+
 def infer_depth(
     processor,
     depth_model,
@@ -87,32 +130,18 @@ def infer_depth(
     device: str,
 ) -> np.ndarray:
     """
-    Run Depth Anything V2 on a BGR frame.
+    Run Depth Anything V2 on a BGR frame (eval / single-frame mode).
 
-    The raw model output is depth (larger = farther). We normalize to [0, 1]
-    and invert so the returned closeness map has 1 = near, 0 = far.
+    Normalizes using only the current frame's min/max.  For video mode,
+    use _run_depth_model + _SharedState.set_depth_ema instead to get
+    EMA-stabilized normalization across frames.
 
     Returns:
-        np.ndarray of shape (H, W), dtype float32, values in [0, 1].
+        np.ndarray of shape (H, W), dtype float32, values in [0, 1],
+        1 = near, 0 = far.
     """
-    h, w = frame.shape[:2]
-    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    inputs = processor(images=image, return_tensors="pt").to(device)
-    with torch.no_grad():
-        outputs = depth_model(**inputs)
-    # Upsample predicted depth to original frame resolution
-    depth = torch.nn.functional.interpolate(
-        outputs.predicted_depth.unsqueeze(1),
-        size=(h, w),
-        mode="bicubic",
-        align_corners=False,
-    ).squeeze().cpu().numpy()  # (H, W), larger = farther
-    d_min, d_max = float(depth.min()), float(depth.max())
-    if d_max - d_min < 1e-6:
-        return np.zeros((h, w), dtype=np.float32)
-    # Normalize and invert → closeness map (1 = near, 0 = far)
-    closeness = 1.0 - (depth - d_min) / (d_max - d_min)
-    return closeness.astype(np.float32)
+    raw = _run_depth_model(processor, depth_model, frame, device)
+    return _normalize_depth(raw, float(raw.min()), float(raw.max()))
 
 
 def fill_depths(
