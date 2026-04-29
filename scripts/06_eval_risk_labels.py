@@ -110,7 +110,7 @@ def main() -> None:
         detections = infer_yolo(yolo, frame)
         depth_map = infer_depth(processor, depth_model, frame, device)
         detections = fill_depths(detections, depth_map, h, w)
-        result = calculate_mischief(detections, depth_map, w, h, source=img_path.name)
+        result = calculate_mischief(detections, w, h, source=img_path.name)
 
         pred = result.risk_level
         is_correct = gt == pred
