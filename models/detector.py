@@ -158,11 +158,9 @@ def infer_depth(
     device: str,
 ) -> np.ndarray:
     """
-    Run Depth Anything V2 on a BGR frame (eval / single-frame mode).
+    Run Depth Anything V2 on a BGR frame.
 
-    Normalizes using only the current frame's min/max.  For video mode,
-    use _run_depth_model + _SharedState.set_depth_ema instead to get
-    EMA-stabilized normalization across frames.
+    Normalizes using the current frame's min/max.
 
     Returns:
         np.ndarray of shape (H, W), dtype float32, values in [0, 1],
