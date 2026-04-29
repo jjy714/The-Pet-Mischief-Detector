@@ -24,9 +24,9 @@ import cv2
 import torch
 from tqdm import tqdm
 
-from model.detector import fill_depths, infer_depth, infer_yolo, load_depth_model, load_yolo
-from model.mischief import calculate_mischief
-from model.visualize import draw_frame
+from models.detector import fill_depths, infer_depth, infer_yolo, load_depth_model, load_yolo
+from models.mischief import calculate_mischief
+from models.visualize import draw_frame
 
 ROOT    = Path(__file__).parent.parent
 WEIGHTS = ROOT / "model" / "runs" / "train" / "weights" / "best.pt"
