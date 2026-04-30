@@ -8,12 +8,14 @@ from models.gnn.dataset import ClipDataset, FrameLoader
 from models.gnn.model import IN_DIM, MischiefGNN
 
 
+## collate one clip into a flat graphs list and a label tensor
 def _collate_fn(batch: list) -> tuple[list, torch.Tensor]:
-    # batch_size=1; unpack the single (graphs_list, label) pair
+    ### batch_size must be 1 because each clip has a variable number of frames — unpack accordingly
     graphs_list, labels = zip(*batch)
     return list(graphs_list[0]), torch.stack(labels)
 
 
+## train MischiefGNN on labeled clips and save the best checkpoint by validation loss
 def train_gnn(
     clips: list[dict],
     frame_loader: FrameLoader,

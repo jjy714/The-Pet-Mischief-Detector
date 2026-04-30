@@ -1,18 +1,49 @@
+# macOS
+.DS_Store
+.AppleDouble
 
-.venv
-
-.env
+# Python
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.db
 
-*.docx
-*.pdf
-Plan.md
-.claude/
+# Environment
+.env
 
+# uv / pip — requirements.txt is a generated export; pyproject.toml + uv.lock are the source of truth
+requirements.txt
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+
+# YOLO training run outputs (weights, curves, logs)
+model/runs/
+runs/
+
+# Data (raw COCO source + staged + split datasets)
 data/
+
+# Generated outputs and caches
 outputs/
 *.cache
+*.db
+
+# Generated images
+imgs/
+scripts/imgs/
+
+# Documents (binary; tracked via docs/ markdown instead)
+*.docx
+*.pdf
+
+# Microsoft Office temp files
+~$*
+
+# Planning and session files
+Plan.md
+depth_size_fix.md
+.claude/

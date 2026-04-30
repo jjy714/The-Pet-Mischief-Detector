@@ -9,23 +9,8 @@ from torch_geometric.data import Batch
 from models.gnn.dataset import LABEL_MAP, LABEL_NAMES  # noqa: F401  (re-exported)
 
 
+# dataset that loads pre-computed hybrid samples from a cache directory of .pt files
 class HybridDataset(Dataset):
-    """
-    Loads pre-computed hybrid samples from a cache directory.
-
-    Each cache file is a dict saved with torch.save:
-      {
-        "global_feat": Tensor (512,),
-        "graph":       torch_geometric.data.Data
-                         .x          (N, 13)   geometric node features
-                         .edge_index (2, E)
-                         .edge_attr  (E, 5)
-                         .roi_feats  (N, 256)  RoI-pooled visual features
-        "label":       int  (0=LOW, 1=MEDIUM, 2=HIGH)
-      }
-
-    Files are expected at: <cache_dir>/<clip_id>.pt
-    """
 
     def __init__(self, cache_dir: Path) -> None:
         self.files = sorted(Path(cache_dir).glob("*.pt"))
@@ -35,23 +20,21 @@ class HybridDataset(Dataset):
                 "Run scripts/07_train_hybrid.py --precompute first."
             )
 
+    ## return the number of cached samples
     def __len__(self) -> int:
         return len(self.files)
 
+    ## load and return one (global_feat, graph, label) tuple
     def __getitem__(self, idx: int):
         sample = torch.load(self.files[idx], weights_only=False)
         return sample["global_feat"], sample["graph"], sample["label"]
 
 
+## collate a list of (global_feat, graph, label) tuples into batched tensors
 def collate_hybrid(batch: list) -> tuple[torch.Tensor, Batch, torch.Tensor]:
-    """
-    DataLoader collate for (global_feat, graph, label) tuples.
-
-    Stacks global_feat tensors and uses PyG Batch to merge variable-size graphs.
-    """
     global_feats, graphs, labels = zip(*batch)
     return (
-        torch.stack(global_feats),          # (B, 512)
-        Batch.from_data_list(list(graphs)), # PyG Batch
+        torch.stack(global_feats),
+        Batch.from_data_list(list(graphs)),
         torch.tensor(labels, dtype=torch.long),
     )

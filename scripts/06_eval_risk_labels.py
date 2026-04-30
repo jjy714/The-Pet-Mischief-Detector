@@ -27,10 +27,12 @@ LABEL_MAP = {
 LEVELS = ["LOW", "MEDIUM", "HIGH"]
 
 
+## pick GPU if available, else CPU
 def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+## read a label file and return the highest risk level found on any line
 def read_ground_truth(label_path: Path) -> str:
     if not label_path.exists():
         raise FileNotFoundError(f"Missing label file: {label_path}")
@@ -39,8 +41,7 @@ def read_ground_truth(label_path: Path) -> str:
     if not lines:
         raise ValueError(f"Empty label file: {label_path}")
 
-    # Current dataset uses one line per image.
-    # If multiple lines appear later, use the highest risk level.
+    ### label format is one integer per line (0=LOW, 1=MEDIUM, 2=HIGH); multiple lines take the max
     risk_ids = [int(line.split()[0]) for line in lines]
     max_risk = max(risk_ids)
 
@@ -50,6 +51,7 @@ def read_ground_truth(label_path: Path) -> str:
     return LABEL_MAP[max_risk]
 
 
+## parse CLI args for weights, image directory, label directory, and output CSV path
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", default="yolo26s.pt")
@@ -65,6 +67,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+## run the full pipeline on each image, compare predictions to ground truth, and save a confusion matrix and CSV
 def main() -> None:
     args = parse_args()
 

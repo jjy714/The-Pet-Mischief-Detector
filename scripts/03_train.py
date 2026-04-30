@@ -1,31 +1,4 @@
 #!/usr/bin/env python3
-"""
-Task 3 — Fine-tune a YOLO model on the curated dataset.
-
-Supports all experiment configurations from docs/finetuning_plan.md via CLI args.
-Defaults reproduce the original baseline (yolo11n, imgsz=640).
-
-Usage:
-  # Baseline
-  uv run scripts/03_train.py
-
-  # Exp A — higher resolution
-  uv run scripts/03_train.py --imgsz 1280 --batch 4 --name exp_a
-
-  # Exp B — copy-paste + augmentation
-  uv run scripts/03_train.py --copy-paste 0.5 --mixup 0.15 --erasing 0.4 --scale 0.9 --name exp_b
-
-  # Exp C — model upgrade
-  uv run scripts/03_train.py --weights yolo26s.pt --batch 8 --lr0 0.0005 --warmup-epochs 5 --patience 25 --copy-paste 0.3 --mixup 0.1 --name exp_c
-
-Outputs (model/runs/<name>/):
-  weights/best.pt  — best checkpoint (by val mAP@0.5)
-  weights/last.pt  — final epoch checkpoint
-  results.csv      — per-epoch metrics
-  results.png      — training curves
-
-Run AFTER scripts/02_split_dataset.py.
-"""
 
 from __future__ import annotations
 
@@ -39,11 +12,12 @@ import torch
 from ultralytics import YOLO
 
 
+## pick the best available device: first CUDA GPU, then Apple Silicon, then CPU
 def _default_device() -> str:
     if torch.cuda.is_available():
-        return "0"          # first CUDA GPU
+        return "0"
     if torch.backends.mps.is_available():
-        return "mps"        # Apple Silicon GPU
+        return "mps"
     return "cpu"
 
 ROOT       = Path(__file__).parent.parent
@@ -51,6 +25,7 @@ SCHEMA_DIR = ROOT / "schema"
 MODEL_DIR  = ROOT / "model"
 
 
+## parse CLI args for all fine-tuning hyperparameters
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Fine-tune YOLO on the pet-mischief dataset.")
     p.add_argument("--weights",        default="yolo11n.pt",  help="Pretrained backbone weights")
@@ -66,10 +41,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--erasing",        type=float, default=0.4,   help="Random erasing probability")
     p.add_argument("--scale",          type=float, default=0.5,   help="Scale jitter range")
     p.add_argument("--device",         default=_default_device(), help="Device: 0 (CUDA), mps, cpu")
+    p.add_argument("--fraction",        type=float, default=1.0,   help="Fraction of training data to use (0.0–1.0)")
+    p.add_argument("--freeze",          type=int,   default=0,     help="Freeze first N backbone layers (0 = none)")
     p.add_argument("--name",           default="train",           help="Run name under model/runs/")
     return p.parse_args()
 
 
+## load YOLO, run training, and print the best checkpoint path
 def main() -> None:
     args = parse_args()
 
@@ -93,11 +71,12 @@ def main() -> None:
         lrf=args.lrf,
         warmup_epochs=args.warmup_epochs,
         patience=args.patience,
+        fraction=args.fraction,
+        freeze=args.freeze if args.freeze > 0 else None,
         seed=42,
         project=str(MODEL_DIR / "runs"),
         name=args.name,
         exist_ok=True,
-        # Augmentation
         mosaic=1.0,
         fliplr=0.5,
         flipud=0.0,

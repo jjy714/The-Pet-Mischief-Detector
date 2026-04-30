@@ -8,6 +8,7 @@ from models.gnn.model import IN_DIM, MischiefGNN
 from schema.Data import Detection
 
 
+## load MischiefGNN from a checkpoint file and return it in eval mode
 def load_gnn_model(checkpoint_path: str, device: str = "cpu") -> MischiefGNN:
     model = MischiefGNN(in_dim=IN_DIM).to(device)
     state = torch.load(checkpoint_path, map_location=device, weights_only=True)
@@ -16,20 +17,12 @@ def load_gnn_model(checkpoint_path: str, device: str = "cpu") -> MischiefGNN:
     return model
 
 
+## predict mischief risk level for a sequence of per-frame Detection lists
 def predict_clip(
     model: MischiefGNN,
     frame_detections: list[list[Detection]],
     device: str = "cpu",
 ) -> str:
-    """
-    Args:
-        model:             Loaded MischiefGNN in eval mode.
-        frame_detections:  Per-frame Detection lists with median_depth filled.
-        device:            Torch device string.
-
-    Returns:
-        "LOW", "MEDIUM", or "HIGH".
-    """
     graphs = []
     prev: list[Detection] | None = None
     for detections in frame_detections:

@@ -9,14 +9,16 @@ from models.gnn.graph_builder import NUM_CLASSES, one_hot
 from models.hybrid.roi_pool import ROI_DIM
 from schema.Data import Detection
 
-# Node features: [one_hot(8), cx, cy, w, h, depth] — no velocity for static images
-NODE_DIM = NUM_CLASSES + 5   # 8 + 4 + 1 = 13
-EDGE_DIM = 5                 # dist_2d, depth_diff, rel_dx, rel_dy, is_pet_to_obj
+### NODE_DIM layout: [one_hot(8 classes), cx, cy, w, h, depth] = 13 dims (no velocity; static image)
+NODE_DIM = NUM_CLASSES + 5
+### EDGE_DIM layout: [dist_2d, depth_diff, rel_dx, rel_dy, is_pet_to_obj] = 5 dims
+EDGE_DIM = 5
 
-_PET_CLASS_IDS = {0, 1}      # cat=0, dog=1 (matches CLASS_NAMES in detector.py)
-_DIAG = math.sqrt(2)         # diagonal of the unit square (normalized image coords)
+_PET_CLASS_IDS = {0, 1}
+_DIAG = math.sqrt(2)
 
 
+## build a (N, NODE_DIM) node feature tensor from detection list
 def build_node_features(detections: list[Detection]) -> torch.Tensor:
     if not detections:
         return torch.zeros((0, NODE_DIM), dtype=torch.float)
@@ -30,21 +32,13 @@ def build_node_features(detections: list[Detection]) -> torch.Tensor:
     return torch.tensor(feats, dtype=torch.float)
 
 
+## return the normalized centroid of a detection bounding box
 def _centroid(det: Detection) -> tuple[float, float]:
     return (det.bbox.x_min + det.bbox.x_max) / 2, (det.bbox.y_min + det.bbox.y_max) / 2
 
 
+## build fully connected directed edge_index and edge_attr tensors for all detection pairs
 def build_edges_and_attr(detections: list[Detection]) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Fully connected directed graph (no self-loops) with 5-dim edge features.
-
-    Edge i → j encodes how object i relates to object j:
-      dist_2d      : normalised 2D centroid distance ∈ [0, 1]
-      depth_diff   : depth_i − depth_j  (signed; positive = i is closer)
-      rel_dx       : cx_j − cx_i        (signed horizontal offset)
-      rel_dy       : cy_j − cy_i        (signed vertical offset)
-      is_pet_to_obj: 1 if i is a pet and j is a non-pet object, else 0
-    """
     n = len(detections)
     if n < 2:
         return (
@@ -76,25 +70,11 @@ def build_edges_and_attr(detections: list[Detection]) -> tuple[torch.Tensor, tor
     return edge_index, edge_attr
 
 
+## build a static PyG Data graph for the hybrid CNN+GNN model, optionally attaching RoI visual features
 def build_static_graph(
     detections: list[Detection],
     roi_feats: torch.Tensor | None = None,
 ) -> Data:
-    """
-    Build a static graph (no velocity) for the hybrid CNN+GNN model.
-
-    Args:
-        detections: YOLO detections with median_depth populated.
-        roi_feats:  Optional (N, 256) RoI-pooled visual features per node.
-                    Stored as graph.roi_feats for the model's roi_proj layer.
-
-    Returns:
-        torch_geometric.data.Data with:
-          .x          (N, NODE_DIM=13)
-          .edge_index (2, E)
-          .edge_attr  (E, EDGE_DIM=5)
-          .roi_feats  (N, 256)  — only if roi_feats is provided
-    """
     n = len(detections)
     x = build_node_features(detections)
     edge_index, edge_attr = build_edges_and_attr(detections)

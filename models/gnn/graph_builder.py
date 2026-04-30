@@ -5,10 +5,13 @@ from torch_geometric.data import Data
 
 from schema.Data import Detection
 
-NUM_CLASSES = 8  # must match CLASS_NAMES in models/detector.py
-# Feature vector layout: [one_hot(8), cx, cy, w, h, depth, vx, vy] = 15 dims
+### NUM_CLASSES must match CLASS_NAMES in models/detector.py — both define the same 8-class set
+NUM_CLASSES = 8
+### node feature layout: [one_hot(8 classes), cx, cy, w, h, depth, vx, vy] = 15 dims
+### vx, vy are zero for the first frame of a clip or for single-image inputs
 
 
+## return a one-hot vector of length num_classes for the given class_id
 def one_hot(class_id: int, num_classes: int = NUM_CLASSES) -> list[float]:
     vec = [0.0] * num_classes
     if 0 <= class_id < num_classes:
@@ -16,8 +19,8 @@ def one_hot(class_id: int, num_classes: int = NUM_CLASSES) -> list[float]:
     return vec
 
 
+## find the closest same-class detection in prev_detections by centroid distance
 def find_match(det: Detection, prev_detections: list[Detection]) -> Detection | None:
-    """Closest same-class detection in prev_detections by centroid distance."""
     cx = (det.bbox.x_min + det.bbox.x_max) / 2
     cy = (det.bbox.y_min + det.bbox.y_max) / 2
     best, best_dist = None, float("inf")
@@ -32,6 +35,7 @@ def find_match(det: Detection, prev_detections: list[Detection]) -> Detection | 
     return best
 
 
+## build a (N, 15) node feature tensor with optional velocity from previous frame detections
 def build_node_features(
     detections: list[Detection],
     prev_detections: list[Detection] | None = None,
@@ -66,6 +70,7 @@ def build_node_features(
     return torch.tensor(feats, dtype=torch.float)
 
 
+## build a fully connected directed edge_index (no self-loops) for num_nodes nodes
 def build_edges(num_nodes: int) -> torch.Tensor:
     if num_nodes < 2:
         return torch.zeros((2, 0), dtype=torch.long)
@@ -78,6 +83,7 @@ def build_edges(num_nodes: int) -> torch.Tensor:
     return torch.tensor(edge_index, dtype=torch.long).t().contiguous()
 
 
+## build a PyG Data graph from current and optional previous frame detections
 def build_graph(
     detections: list[Detection],
     prev_detections: list[Detection] | None = None,

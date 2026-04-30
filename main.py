@@ -1,23 +1,3 @@
-"""
-Pet Mischief Detector — unified entry point (eval mode only).
-
-Batch-processes a folder of static images, saves annotated outputs to disk.
-Used for Task 4B report visualizations and the bonus generalization test.
-
-Usage:
-  uv run main.py [--input PATH] [--output PATH]
-
-Options:
-  --weights          Path to YOLO weights  (default: model/runs/train/weights/best.pt)
-  --input            Image folder to evaluate
-                     (default: data/dataset/test/images)
-  --output           Output folder for annotated images
-                     (default: outputs/visualizations)
-  --detector         heuristic | hybrid  (default: heuristic)
-  --hybrid-checkpoint  Path to hybrid model checkpoint
-                     (default: models/hybrid/checkpoints/best.pt)
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -47,14 +27,12 @@ DEFAULT_OUTPUT  = ROOT / "outputs" / "visualizations"
 _LEVEL_SCORE = {"HIGH": 1.0, "MEDIUM": 0.5, "LOW": 0.1}
 
 
+## pick GPU if CUDA is available, else use CPU
 def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-# ---------------------------------------------------------------------------
-# Eval mode
-# ---------------------------------------------------------------------------
-
+## process all images in the input folder and save annotated results organized by risk level
 def run_eval(args: argparse.Namespace, yolo, processor, depth_model, device: str, hybrid_models=None) -> None:
     input_dir = Path(args.input)
     out_dir   = Path(args.output)
@@ -117,10 +95,7 @@ def run_eval(args: argparse.Namespace, yolo, processor, depth_model, device: str
     print(f"Output saved to {out_dir}")
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
+## parse command-line arguments for model weights, input folder, output folder, and detector type
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Pet Mischief Detector",
@@ -156,6 +131,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+## load models based on args and start the evaluation loop
 def main() -> None:
     args   = _parse_args()
     device = get_device()

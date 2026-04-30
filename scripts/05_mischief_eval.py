@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""
-Task 4B — Qualitative mischief system evaluation (batch image mode).
-
-Runs the full pipeline on every image in the test set:
-  1. YOLO detection (bounding boxes + class labels)
-  2. Depth Anything V2 (closeness map)
-  3. calculate_mischief() (risk score + warning message)
-  4. draw_frame() (annotated output image)
-
-Annotated images are saved to outputs/visualizations/.
-
-Run AFTER scripts/03_train.py.
-"""
 
 from __future__ import annotations
 
@@ -34,10 +21,12 @@ IMG_DIR = ROOT / "data" / "dataset" / "test" / "images"
 OUT_DIR = ROOT / "outputs" / "visualizations"
 
 
+## pick GPU if available, else CPU
 def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+## run the full pipeline on every test image and save annotated outputs
 def main() -> None:
     if not WEIGHTS.exists():
         raise FileNotFoundError(

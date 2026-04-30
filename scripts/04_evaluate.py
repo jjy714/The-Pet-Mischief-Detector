@@ -1,30 +1,4 @@
 #!/usr/bin/env python3
-"""
-Task 4A — Quantitative evaluation of the trained detector.
-
-Evaluates the model on the held-out test split and reports:
-  - Overall mAP@0.5 and mAP@[0.5:0.95] (mean over our 8 classes)
-  - Per-class AP@0.5
-
-Handles two model types automatically:
-  - Fine-tuned 8-class model (best.pt): uses ultralytics model.val() directly.
-  - Pretrained COCO 80-class model (yolo11n.pt, yolo26s.pt): runs inference
-    per-image and computes AP manually, mapping COCO class IDs to our 0-7 IDs.
-    This bypasses ultralytics' label-cache path resolution which would otherwise
-    always use the cached original (un-remapped) label IDs.
-
-Usage:
-  uv run scripts/04_evaluate.py                                  # uses best.pt @ 640
-  uv run scripts/04_evaluate.py --weights yolo26s.pt             # pretrained baseline
-  uv run scripts/04_evaluate.py --weights exp_a/best.pt --imgsz 1280          # Exp A
-  uv run scripts/04_evaluate.py --weights exp_a/best.pt --imgsz 640           # Exp A'
-  uv run scripts/04_evaluate.py --weights exp_b/best.pt --out-dir outputs/eval/exp_b
-
-Outputs (--out-dir, default outputs/eval/):
-  test_metrics.json   — overall metrics as JSON
-  per_class_ap.csv    — per-class AP@0.5 table
-  per_class_ap.png    — bar chart
-"""
 
 from __future__ import annotations
 
@@ -48,18 +22,14 @@ YAML_PATH       = ROOT / "schema" / "dataset.yaml"
 
 CLASS_NAMES = ["cat", "dog", "cup", "laptop", "potted plant", "vase", "remote", "keyboard"]
 
-# Our remapped IDs (0-7) → COCO IDs
+# remapped IDs (0-7) to COCO IDs
 OUR_TO_COCO: dict[int, int] = {0: 15, 1: 16, 2: 41, 3: 63, 4: 58, 5: 75, 6: 65, 7: 66}
 COCO_TO_OUR: dict[int, int] = {v: k for k, v in OUR_TO_COCO.items()}
 COCO_TARGET_IDS = list(OUR_TO_COCO.values())
 
 
-# ---------------------------------------------------------------------------
-# AP computation helpers
-# ---------------------------------------------------------------------------
-
+## compute IoU of two boxes in xywh-normalized format
 def _iou(box1: list[float], box2: list[float]) -> float:
-    """IoU of two boxes in xywh-normalized format."""
     b1x1, b1y1 = box1[0] - box1[2] / 2, box1[1] - box1[3] / 2
     b1x2, b1y2 = box1[0] + box1[2] / 2, box1[1] + box1[3] / 2
     b2x1, b2y1 = box2[0] - box2[2] / 2, box2[1] - box2[3] / 2
@@ -73,13 +43,13 @@ def _iou(box1: list[float], box2: list[float]) -> float:
     return inter / union if union > 0 else 0.0
 
 
+## compute per-class AP at a single IoU threshold using 101-point COCO interpolation
 def _ap_at_iou(
     preds_by_img: dict[str, list[tuple[list[float], float]]],
     gt_by_img:    dict[str, list[list[float]]],
     n_gt:         int,
     iou_thresh:   float,
 ) -> float:
-    """Per-class AP at a single IoU threshold (101-point COCO interpolation)."""
     if n_gt == 0:
         return 0.0
 
@@ -123,6 +93,7 @@ def _ap_at_iou(
     return ap / 101
 
 
+## compute both AP@0.5 and AP@[0.5:0.95] for one class
 def _ap50_and_ap50_95(
     preds_by_img: dict[str, list[tuple[list[float], float]]],
     gt_by_img:    dict[str, list[list[float]]],
@@ -136,23 +107,13 @@ def _ap50_and_ap50_95(
     return ap50, ap50_95
 
 
-# ---------------------------------------------------------------------------
-# COCO pretrained evaluation (manual inference path)
-# ---------------------------------------------------------------------------
-
+## run manual inference on pretrained COCO model and compute AP by remapping class IDs to our 0-7 scheme
 def eval_coco_pretrained(
     model: YOLO,
     test_img_dir:   Path,
     test_label_dir: Path,
     imgsz:          int = 640,
 ) -> tuple[list[float], list[float]]:
-    """
-    Returns (per_class_ap50, per_class_ap50_95) for our 8 classes.
-
-    Runs model.predict() per image, maps COCO IDs to our 0-7 IDs,
-    then computes AP manually. Bypasses ultralytics val() entirely to
-    avoid the labels.cache path-resolution bug.
-    """
     preds_by_class: dict[int, dict[str, list]] = {c: {} for c in range(len(CLASS_NAMES))}
     gt_by_class:    dict[int, dict[str, list]] = {c: {} for c in range(len(CLASS_NAMES))}
     n_gt: dict[int, int] = {c: 0 for c in range(len(CLASS_NAMES))}
@@ -170,7 +131,6 @@ def eval_coco_pretrained(
         img_id = img_path.stem
         label_path = test_label_dir / (img_id + ".txt")
 
-        # Load ground truth (our class IDs 0-7, xywh normalized)
         if label_path.exists():
             for line in label_path.read_text().splitlines():
                 parts = line.split()
@@ -181,7 +141,6 @@ def eval_coco_pretrained(
                 gt_by_class[c].setdefault(img_id, []).append(box)
                 n_gt[c] += 1
 
-        # Run inference (restrict to our 8 COCO target class IDs)
         results = model.predict(str(img_path), classes=COCO_TARGET_IDS, imgsz=imgsz, verbose=False)
 
         for result in results:
@@ -213,10 +172,7 @@ def eval_coco_pretrained(
     return per_class_ap50, per_class_ap50_95
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
+## evaluate model on test split, save metrics JSON, per-class CSV, and bar chart
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate YOLO detector on test split.")
     parser.add_argument(
@@ -259,7 +215,7 @@ def main() -> None:
         per_ap50, per_ap50_95 = eval_coco_pretrained(model, test_img_dir, test_lbl_dir, imgsz=imgsz)
         map50    = float(np.mean(per_ap50))
         map50_95 = float(np.mean(per_ap50_95))
-        prec = rec = float("nan")  # not computed in manual path
+        prec = rec = float("nan")
     else:
         if model_nc != len(CLASS_NAMES):
             print(
@@ -268,7 +224,7 @@ def main() -> None:
             )
         metrics  = model.val(data=str(YAML_PATH), split="test", imgsz=imgsz, verbose=True)
         per_ap50 = metrics.box.ap50.tolist()
-        per_ap50_95 = [float(ap) for ap in metrics.box.ap]  # per-class mAP50-95
+        per_ap50_95 = [float(ap) for ap in metrics.box.ap]
         map50    = float(metrics.box.map50)
         map50_95 = float(metrics.box.map)
         prec     = float(metrics.box.mp)
@@ -277,7 +233,7 @@ def main() -> None:
     print(f"\n=== Test Set Results ({weights.name}, imgsz={imgsz}) ===")
     print(f"  mAP@0.5        : {map50:.4f}")
     print(f"  mAP@[0.5:0.95] : {map50_95:.4f}")
-    if not (isinstance(prec, float) and prec != prec):  # skip NaN
+    if not (isinstance(prec, float) and prec != prec):
         print(f"  Precision       : {prec:.4f}")
         print(f"  Recall          : {rec:.4f}")
 

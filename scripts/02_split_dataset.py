@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""
-Task 2 — Split and format the dataset.
-
-Reproducibly splits the staged images into train / val / test sets
-(80 % / 10 % / 10 %) using a fixed random seed, then generates
-schema/dataset.yaml for Ultralytics YOLO training.
-
-Uses symlinks to avoid duplicating data on disk. Falls back to copying
-on file-systems that do not support symlinks.
-
-Run AFTER scripts/01_curate_coco.py.
-"""
 
 from __future__ import annotations
 
@@ -31,13 +19,12 @@ SCHEMA_DIR  = ROOT / "schema"
 SEED        = 42
 TRAIN_RATIO = 0.80
 VAL_RATIO   = 0.10
-# TEST_RATIO  = 1 - TRAIN_RATIO - VAL_RATIO = 0.10
 
 CLASS_NAMES = ["cat", "dog", "cup", "laptop", "potted plant", "vase", "remote", "keyboard"]
 
 
+## create a symlink from dst to src, falling back to a file copy if symlinks are unsupported
 def _link_or_copy(src: Path, dst: Path) -> None:
-    """Create a symlink from dst → src, or copy if symlinks are unavailable."""
     if dst.exists() or dst.is_symlink():
         dst.unlink()
     try:
@@ -46,6 +33,7 @@ def _link_or_copy(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst)
 
 
+## split staged images 80/10/10 and write schema/dataset.yaml
 def main() -> None:
     staged_images = STAGED_DIR / "images"
     staged_labels = STAGED_DIR / "labels"
@@ -71,7 +59,6 @@ def main() -> None:
         "test":  images[n_train + n_val :],
     }
 
-    # Create split directories
     for split in splits:
         (DATASET_DIR / split / "images").mkdir(parents=True, exist_ok=True)
         (DATASET_DIR / split / "labels").mkdir(parents=True, exist_ok=True)
@@ -87,7 +74,6 @@ def main() -> None:
 
     print(f"\nTotal : {n}  (train={n_train}, val={n_val}, test={n_test})")
 
-    # Write dataset.yaml with absolute path to the dataset root
     yaml_path = SCHEMA_DIR / "dataset.yaml"
     dataset_cfg = {
         "path":  str((DATASET_DIR).resolve()),

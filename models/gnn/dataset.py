@@ -11,19 +11,21 @@ from schema.Data import Detection
 LABEL_MAP: dict[str, int] = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
 LABEL_NAMES: dict[int, str] = {v: k for k, v in LABEL_MAP.items()}
 
-# Callable contract: accepts a frame_id string, returns list[Detection] with
-# median_depth already populated (YOLO + depth inference done by the caller).
+### FrameLoader callable contract: accepts a frame_id string, returns list[Detection] with median_depth already populated
 FrameLoader = Callable[[str], list[Detection]]
 
 
+# dataset over clips; each item is a sequence of per-frame graphs and a risk label
 class ClipDataset(Dataset):
     def __init__(self, clips: list[dict], frame_loader: FrameLoader):
         self.clips = clips
         self.frame_loader = frame_loader
 
+    ## return the number of clips
     def __len__(self) -> int:
         return len(self.clips)
 
+    ## build graph sequence for one clip and return (graphs, label)
     def __getitem__(self, idx: int) -> tuple[list, torch.Tensor]:
         clip = self.clips[idx]
         graphs = []

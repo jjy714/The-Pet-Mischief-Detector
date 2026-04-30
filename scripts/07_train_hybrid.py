@@ -1,27 +1,4 @@
 #!/usr/bin/env python3
-"""
-Pre-compute hybrid CNN+GNN cache and train HybridMischiefModel.
-
-Two-phase execution controlled by --phase:
-
-  --phase precompute  (run first)
-    For each clip in the clips JSON, loads the first (or only) frame,
-    runs YOLO + Depth Anything V2 + ResNet18 backbone, and saves a .pt
-    cache file containing the graph, RoI features, global scene feature,
-    and label.  Must be run once before training.
-
-  --phase train  (run after precompute)
-    Loads the .pt cache files, trains HybridMischiefModel, and saves the
-    best checkpoint to models/hybrid/checkpoints/best.pt.
-
-Run:
-  uv run scripts/07_train_hybrid.py --phase precompute
-  uv run scripts/07_train_hybrid.py --phase train
-
-Clips file format (same as 06_train_gnn.py):
-  [{"clip_id": "img_00", "frames": ["001"], "risk_level": "HIGH", ...}, ...]
-Frame IDs are resolved to <images_dir>/<frame_id>.{jpg,jpeg,png}.
-"""
 
 from __future__ import annotations
 
@@ -57,10 +34,12 @@ CACHE_DIR = ROOT / "data" / "hybrid_cache"
 CKPT_DIR = ROOT / "models" / "hybrid" / "checkpoints"
 
 
+## pick GPU if available, else CPU
 def get_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
+## resolve a frame_id to a Path by trying .jpg, .jpeg, .png extensions
 def _resolve_frame(frame_id: str, images_dir: Path) -> Path | None:
     for ext in (".jpg", ".jpeg", ".png"):
         p = images_dir / f"{frame_id}{ext}"
@@ -69,11 +48,7 @@ def _resolve_frame(frame_id: str, images_dir: Path) -> Path | None:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Phase 1 — pre-compute and cache features
-# ---------------------------------------------------------------------------
-
-
+## run YOLO + depth + backbone on each clip's first frame and save a .pt cache file
 def precompute(args: argparse.Namespace) -> None:
     clips_path = Path(args.clips)
     if not clips_path.exists():
@@ -110,7 +85,7 @@ def precompute(args: argparse.Namespace) -> None:
     skipped = 0
 
     for clip in tqdm(clips, desc="Pre-computing"):
-        # Use only the first frame of each clip (hybrid model = static)
+        ### only the first frame of each clip is used — the hybrid model is static, not temporal
         frame_id = clip["frames"][0]
         img_path = _resolve_frame(frame_id, images_dir)
 
@@ -130,14 +105,11 @@ def precompute(args: argparse.Namespace) -> None:
         depth_map = infer_depth(processor, depth_model, frame, device)
         detections = fill_depths(detections, depth_map, h, w)
 
-        # ResNet18 backbone features
-        img_t = preprocess_frame(frame, device)  # (1,3,640,640)
-        feat_map, global_feat = backbone.extract(img_t)  # (1,256,40,40), (1,512)
+        img_t = preprocess_frame(frame, device)
+        feat_map, global_feat = backbone.extract(img_t)
 
-        # RoI features per detection
-        roi_feats = extract_roi_features(feat_map, detections)  # (N, 256)
+        roi_feats = extract_roi_features(feat_map, detections)
 
-        # Build graph (no velocity; with edge features)
         graph = build_static_graph(detections, roi_feats=roi_feats)
 
         label = LABEL_MAP[clip["risk_level"]]
@@ -145,7 +117,7 @@ def precompute(args: argparse.Namespace) -> None:
 
         torch.save(
             {
-                "global_feat": global_feat.squeeze(0).cpu(),  # (512,)
+                "global_feat": global_feat.squeeze(0).cpu(),
                 "graph": graph.cpu(),
                 "label": label,
             },
@@ -156,11 +128,7 @@ def precompute(args: argparse.Namespace) -> None:
     print(f"Cached {total} samples to {cache_dir}  ({skipped} skipped)")
 
 
-# ---------------------------------------------------------------------------
-# Phase 2 — train
-# ---------------------------------------------------------------------------
-
-
+## load cached features and train HybridMischiefModel
 def train(args: argparse.Namespace) -> None:
     cache_dir = Path(args.cache)
     if not any(cache_dir.glob("*.pt")):
@@ -187,11 +155,7 @@ def train(args: argparse.Namespace) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-
+## parse --phase and dispatch to precompute or train
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hybrid CNN+GNN: pre-compute or train")
     parser.add_argument(

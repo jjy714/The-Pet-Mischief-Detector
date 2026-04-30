@@ -10,6 +10,7 @@ from models.hybrid.dataset import HybridDataset, collate_hybrid
 from models.hybrid.model import HybridMischiefModel
 
 
+## train HybridMischiefModel on pre-computed cached samples and save the best checkpoint
 def train_hybrid(
     cache_dir: Path,
     checkpoint_path: str,
@@ -19,18 +20,6 @@ def train_hybrid(
     val_fraction: float = 0.2,
     device: str = "cpu",
 ) -> None:
-    """
-    Train HybridMischiefModel on pre-computed cached samples.
-
-    Args:
-        cache_dir:        Directory containing .pt cache files from preprocessing.
-        checkpoint_path:  Where to save the best model weights.
-        epochs:           Total training epochs.
-        lr:               AdamW learning rate.
-        batch_size:       Samples per gradient step (PyG handles variable graphs).
-        val_fraction:     Fraction of data held out for validation.
-        device:           "cpu" or "cuda".
-    """
     dataset = HybridDataset(cache_dir)
     n_val   = max(1, int(len(dataset) * val_fraction))
     n_train = len(dataset) - n_val

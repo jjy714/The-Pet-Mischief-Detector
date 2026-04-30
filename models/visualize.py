@@ -1,10 +1,3 @@
-"""
-Visualization utilities for the Pet Mischief Detector.
-
-draw_frame() is the single function used by both eval (static images)
-and video (live display) modes.
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -14,30 +7,32 @@ from schema.Data import Detection, MischiefResult
 
 PET_CLASSES = {"cat", "dog"}
 
-# BGR colours
+# BGR colour map for each risk level
 RISK_COLOURS: dict[str, tuple[int, int, int]] = {
-    "HIGH":   (0,   0,   200),  # red
-    "MEDIUM": (0,   140, 255),  # orange
-    "LOW":    (40,  160,  40),  # green
+    "HIGH":   (0,   0,   200),
+    "MEDIUM": (0,   140, 255),
+    "LOW":    (40,  160,  40),
 }
-PET_BOX_COLOUR: tuple[int, int, int] = (50,  180, 255)  # amber-blue
-OBJ_BOX_COLOUR: tuple[int, int, int] = (200,  80,  40)  # teal-blue
+PET_BOX_COLOUR: tuple[int, int, int] = (50,  180, 255)
+OBJ_BOX_COLOUR: tuple[int, int, int] = (200,  80,  40)
 
 FONT        = cv2.FONT_HERSHEY_SIMPLEX
 LABEL_SCALE = 0.5
 BOX_THICK   = 2
 TEXT_THICK  = 1
 
-BANNER_HEIGHT = 44  # pixels
-DEPTH_THUMB_FRAC = 0.25  # fraction of frame width/height for depth inset
+BANNER_HEIGHT = 44
+DEPTH_THUMB_FRAC = 0.25
 
 
+## return the pixel-space centre of a detection bounding box
 def _pixel_centre(det: Detection, w: int, h: int) -> tuple[int, int]:
     cx = int((det.bbox.x_min + det.bbox.x_max) / 2 * w)
     cy = int((det.bbox.y_min + det.bbox.y_max) / 2 * h)
     return cx, cy
 
 
+## draw a dashed line between pt1 and pt2 in-place
 def _draw_dashed_line(
     img: np.ndarray,
     pt1: tuple[int, int],
@@ -46,7 +41,6 @@ def _draw_dashed_line(
     thickness: int = 2,
     dash_len: int = 12,
 ) -> None:
-    """Draw a dashed line between pt1 and pt2 in-place."""
     x1, y1 = pt1
     x2, y2 = pt2
     length = max(1, int(np.hypot(x2 - x1, y2 - y1)))
@@ -62,6 +56,7 @@ def _draw_dashed_line(
         draw = not draw
 
 
+## render bounding boxes, risk banner, pair connector, and depth inset onto a copy of the input frame
 def draw_frame(
     frame: np.ndarray,
     result: MischiefResult,
@@ -69,28 +64,10 @@ def draw_frame(
     fps_display: float | None = None,
     fps_depth: float | None = None,
 ) -> np.ndarray:
-    """
-    Render bounding boxes, risk banner, pair connector, and depth inset
-    onto a copy of the input frame.
-
-    Args:
-        frame:       BGR image (H, W, 3).
-        result:      MischiefResult from calculate_mischief().
-        depth_map:   Closeness map (H, W) float32 for the depth inset.
-                     Pass None to skip the inset.
-        fps_display: Current display/YOLO FPS (shown in video mode).
-        fps_depth:   Current depth-update FPS (shown in video mode).
-
-    Returns:
-        Annotated BGR image (same shape as input).
-    """
     out = frame.copy()
     h, w = out.shape[:2]
     risk_colour = RISK_COLOURS[result.risk_level]
 
-    # ------------------------------------------------------------------
-    # 1. Bounding boxes
-    # ------------------------------------------------------------------
     for det in result.detections:
         x1 = int(det.bbox.x_min * w)
         y1 = int(det.bbox.y_min * h)
@@ -109,9 +86,6 @@ def draw_frame(
             FONT, LABEL_SCALE, (255, 255, 255), TEXT_THICK, cv2.LINE_AA,
         )
 
-    # ------------------------------------------------------------------
-    # 2. Dashed connector between highest-risk pair
-    # ------------------------------------------------------------------
     if result.pairs:
         top = result.pairs[0]
         _draw_dashed_line(
@@ -122,9 +96,6 @@ def draw_frame(
             thickness=BOX_THICK,
         )
 
-    # ------------------------------------------------------------------
-    # 3. Risk banner (top of frame)
-    # ------------------------------------------------------------------
     cv2.rectangle(out, (0, 0), (w, BANNER_HEIGHT), risk_colour, -1)
     banner_text = f"{result.risk_level} RISK  |  {result.warning_message}"
     cv2.putText(
@@ -133,9 +104,6 @@ def draw_frame(
         FONT, LABEL_SCALE, (255, 255, 255), TEXT_THICK, cv2.LINE_AA,
     )
 
-    # ------------------------------------------------------------------
-    # 4. Depth map thumbnail (bottom-right corner)
-    # ------------------------------------------------------------------
     if depth_map is not None:
         thumb_w = max(1, int(w * DEPTH_THUMB_FRAC))
         thumb_h = max(1, int(h * DEPTH_THUMB_FRAC))
@@ -150,9 +118,6 @@ def draw_frame(
             FONT, 0.45, (255, 255, 255), TEXT_THICK, cv2.LINE_AA,
         )
 
-    # ------------------------------------------------------------------
-    # 5. FPS counters (video mode only)
-    # ------------------------------------------------------------------
     if fps_display is not None:
         cv2.putText(
             out, f"FPS: {fps_display:.1f}",
